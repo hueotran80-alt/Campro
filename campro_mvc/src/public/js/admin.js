@@ -1,1 +1,0 @@
-document.querySelectorAll('.flash').forEach(el => { setTimeout(() => { el.style.opacity='0'; setTimeout(() => el.remove(),500); }, 4000); }); const p=window.location.pathname; document.querySelectorAll('.admin-nav .nav-item').forEach(a => { if(p.startsWith(a.getAttribute('href'))){ a.style.background='rgba(255,255,255,.15)'; a.style.color='#fff'; } });
