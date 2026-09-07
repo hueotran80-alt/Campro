@@ -1,0 +1,134 @@
+<%- include('../partials/admin-header') %>
+<style>
+.report-filter { background: #1a1d27; border-radius: 12px; padding: 1.5rem; margin-bottom: 1.5rem; border: 1px solid rgba(255,255,255,0.08); }
+.report-filter label { color: #aaa; font-size: 0.82rem; font-weight: 600; display: block; margin-bottom: 0.3rem; }
+.report-filter input[type=date] { background: #252836; border: 1px solid rgba(255,255,255,0.12); color: #fff; border-radius: 8px; padding: 0.5rem 0.9rem; font-size: 0.9rem; }
+.filter-row { display: flex; align-items: flex-end; gap: 1.5rem; flex-wrap: wrap; }
+.btn-filter { background: #4e9af1; color: #fff; border: none; border-radius: 8px; padding: 0.55rem 1.4rem; font-size: 0.9rem; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 0.5rem; }
+.report-stats { display: grid; grid-template-columns: repeat(4,1fr); gap: 1.25rem; margin-bottom: 1.5rem; }
+.r-stat { background: #1a1d27; border-radius: 12px; padding: 1.4rem 1.5rem; border: 1px solid rgba(255,255,255,0.08); }
+.r-stat .r-label { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.07em; color: #888; text-transform: uppercase; margin-bottom: 0.5rem; }
+.r-stat .r-value { font-size: 1.55rem; font-weight: 800; }
+.r-stat.rv .r-value { color: #4e9af1; }
+.r-stat.ro .r-value { color: #a78bfa; }
+.r-stat.rc .r-value { color: #34d399; }
+.r-stat.rx .r-value { color: #f87171; }
+.r-stat .r-icon { float: right; font-size: 2rem; opacity: 0.2; }
+.report-table-card { background: #1a1d27; border-radius: 12px; padding: 1.5rem; border: 1px solid rgba(255,255,255,0.08); margin-bottom: 1.5rem; }
+.report-table-card h3 { color: #fff; font-size: 1rem; font-weight: 700; margin-bottom: 1.25rem; display: flex; align-items: center; gap: 0.5rem; }
+.report-table-card h3 i { color: #4e9af1; }
+.r-table { width: 100%; border-collapse: collapse; }
+.r-table th { color: #888; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600; padding: 0.6rem 1rem; border-bottom: 1px solid rgba(255,255,255,0.07); text-align: left; }
+.r-table td { color: #ccc; font-size: 0.88rem; padding: 0.7rem 1rem; border-bottom: 1px solid rgba(255,255,255,0.05); }
+.r-table td.money { color: #f59e0b; font-weight: 700; text-align: right; }
+.r-table td.num { text-align: center; color: #a78bfa; font-weight: 700; }
+.r-table tfoot td { font-weight: 800; color: #f59e0b; border-top: 2px solid rgba(255,255,255,0.12); }
+.r-table tbody tr:hover { background: rgba(255,255,255,0.03); }
+.top-prod-row { display: flex; align-items: center; gap: 0.75rem; }
+.top-prod-row img { width: 40px; height: 40px; object-fit: cover; border-radius: 6px; }
+</style>
+
+<div style="background:#0f1117;min-height:calc(100vh - 80px);margin:-1.5rem;padding:1.5rem;">
+  <div style="font-size:1.8rem;font-weight:800;color:#fff;display:flex;align-items:center;gap:0.75rem;margin-bottom:1.5rem;">
+    <i class="fas fa-chart-line" style="color:#4e9af1"></i> Báo cáo Doanh thu
+  </div>
+
+  <!-- Filter -->
+  <div class="report-filter">
+    <form method="GET" action="/admin/report">
+      <div class="filter-row">
+        <div>
+          <label>Từ ngày</label>
+          <input type="date" name="from" value="<%= filter.from %>">
+        </div>
+        <div>
+          <label>Đến ngày</label>
+          <input type="date" name="to" value="<%= filter.to %>">
+        </div>
+        <button type="submit" class="btn-filter"><i class="fas fa-filter"></i> Lọc dữ liệu</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- Stats -->
+  <div class="report-stats">
+    <div class="r-stat rv">
+      <i class="fas fa-money-bill-wave r-icon"></i>
+      <div class="r-label">Tổng doanh thu</div>
+      <div class="r-value"><%= Number(summary.total_revenue || 0).toLocaleString('vi-VN') %>đ</div>
+    </div>
+    <div class="r-stat ro">
+      <i class="fas fa-shopping-cart r-icon"></i>
+      <div class="r-label">Tổng đơn hàng</div>
+      <div class="r-value"><%= summary.total_orders || 0 %></div>
+    </div>
+    <div class="r-stat rc">
+      <i class="fas fa-check-circle r-icon"></i>
+      <div class="r-label">Đơn hoàn thành</div>
+      <div class="r-value"><%= summary.completed_orders || 0 %></div>
+    </div>
+    <div class="r-stat rx">
+      <i class="fas fa-times-circle r-icon"></i>
+      <div class="r-label">Đơn đã hủy</div>
+      <div class="r-value"><%= summary.cancelled_orders || 0 %></div>
+    </div>
+  </div>
+
+  <!-- Daily Revenue Table -->
+  <div class="report-table-card">
+    <h3><i class="fas fa-calendar-alt"></i> Doanh thu theo ngày</h3>
+    <table class="r-table">
+      <thead>
+        <tr><th>Ngày</th><th class="num">Số đơn</th><th style="text-align:right">Doanh thu</th></tr>
+      </thead>
+      <tbody>
+        <% if (dailyRevenue.length === 0) { %>
+        <tr><td colspan="3" style="text-align:center;color:#666;padding:2rem">Không có dữ liệu</td></tr>
+        <% } %>
+        <% dailyRevenue.forEach(r => { %>
+        <tr>
+          <td><%= r.day %></td>
+          <td class="num"><%= r.orders %></td>
+          <td class="money"><%= Number(r.revenue).toLocaleString('vi-VN') %> VND</td>
+        </tr>
+        <% }) %>
+      </tbody>
+      <tfoot>
+        <tr>
+          <td><strong>TỔNG CỘNG</strong></td>
+          <td class="num" style="color:#f59e0b"><strong><%= summary.total_orders || 0 %></strong></td>
+          <td class="money"><strong><%= Number(summary.total_revenue || 0).toLocaleString('vi-VN') %> VND</strong></td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+
+  <!-- Top Products -->
+  <div class="report-table-card">
+    <h3><i class="fas fa-fire" style="color:#f59e0b"></i> Top 10 Sản phẩm bán chạy nhất</h3>
+    <table class="r-table">
+      <thead>
+        <tr><th>Sản phẩm</th><th class="num">Đã bán</th><th style="text-align:right">Doanh thu</th></tr>
+      </thead>
+      <tbody>
+        <% if (topProducts.length === 0) { %>
+        <tr><td colspan="3" style="text-align:center;color:#666;padding:2rem">Không có dữ liệu</td></tr>
+        <% } %>
+        <% topProducts.forEach(p => { %>
+        <tr>
+          <td>
+            <div class="top-prod-row">
+              <img src="<%= p.image ? '/uploads/' + p.image : '/images/no-image.svg' %>" alt="">
+              <span><%= p.name %></span>
+            </div>
+          </td>
+          <td class="num"><%= p.sold %></td>
+          <td class="money"><%= Number(p.revenue || 0).toLocaleString('vi-VN') %> VND</td>
+        </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<%- include('../partials/admin-footer') %>

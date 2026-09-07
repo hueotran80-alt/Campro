@@ -1,0 +1,39 @@
+<%- include('../partials/header') %>
+<div class="container" style="padding:2rem 0">
+  <h1>📋 Đơn hàng #<%= order.order_code %></h1>
+  <div class="order-detail-layout">
+    <div class="card">
+      <h3>Thông tin giao hàng</h3>
+      <p><strong>Người nhận:</strong> <%= order.full_name %></p>
+      <p><strong>Điện thoại:</strong> <%= order.phone %></p>
+      <p><strong>Địa chỉ:</strong> <%= order.address %></p>
+      <p><strong>Thanh toán:</strong> <%= order.payment_method %></p>
+      <p><strong>Trạng thái:</strong> <span class="badge badge-info"><%= order.order_status %></span></p>
+      <p><strong>Ngày đặt:</strong> <%= new Date(order.created_at).toLocaleString('vi-VN') %></p>
+      <% if (order.note) { %><p><strong>Ghi chú:</strong> <%= order.note %></p><% } %>
+    </div>
+    <div class="card">
+      <h3>Sản phẩm</h3>
+      <% items.forEach(item => { %>
+      <div class="summary-item">
+        <span><%= item.product_name %> x<%= item.quantity %></span>
+        <span><%= Number(item.total).toLocaleString('vi-VN') %>đ</span>
+      </div>
+      <% }) %>
+      <hr>
+      <% if (order.discount > 0) { %>
+      <div class="summary-item"><span>Giảm giá</span><span>-<%= Number(order.discount).toLocaleString('vi-VN') %>đ</span></div>
+      <% } %>
+      <div class="summary-item total">
+        <strong>Tổng cộng</strong><strong><%= Number(order.total).toLocaleString('vi-VN') %>đ</strong>
+      </div>
+      <% if (order.order_status === 'pending') { %>
+      <form action="/orders/<%= order.id %>/cancel" method="POST" style="margin-top:1rem">
+        <button type="submit" class="btn btn-danger btn-full" onclick="return confirm('Hủy đơn hàng này?')">Hủy đơn hàng</button>
+      </form>
+      <% } %>
+    </div>
+  </div>
+  <a href="/orders" class="btn btn-outline" style="margin-top:1rem">← Quay lại đơn hàng</a>
+</div>
+<%- include('../partials/footer') %>

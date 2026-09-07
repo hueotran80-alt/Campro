@@ -1,0 +1,109 @@
+<%- include('../partials/admin-header') %>
+<style>
+.edit-modal { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:1000; align-items:center; justify-content:center; }
+.edit-modal.active { display:flex; }
+.modal-box { background:#1e2130; border-radius:12px; padding:2rem; width:500px; max-width:95%; border:1px solid rgba(255,255,255,0.1); }
+.modal-box h3 { color:#fff; font-size:1.1rem; font-weight:700; margin-bottom:1.25rem; }
+.mform-group { margin-bottom:1rem; }
+.mform-group label { display:block; color:#aaa; font-size:0.82rem; font-weight:600; margin-bottom:0.3rem; }
+.mform-group input, .mform-group textarea, .mform-group select {
+  width:100%; background:#252836; border:1px solid rgba(255,255,255,0.12);
+  color:#fff; border-radius:8px; padding:0.55rem 0.9rem; font-size:0.88rem; outline:none;
+}
+.mform-group input:focus, .mform-group textarea:focus { border-color:#4e9af1; }
+.modal-btns { display:flex; gap:0.75rem; margin-top:1.25rem; justify-content:flex-end; }
+.btn-modal-save   { background:#4e9af1; color:#fff; border:none; border-radius:8px; padding:0.5rem 1.4rem; font-size:0.88rem; font-weight:700; cursor:pointer; }
+.btn-modal-cancel { background:#374151; color:#ccc; border:none; border-radius:8px; padding:0.5rem 1.2rem; font-size:0.88rem; cursor:pointer; }
+</style>
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:2rem">
+  <div class="card">
+    <h3>Danh sách nhà cung cấp</h3>
+    <table class="table">
+      <thead><tr><th>Tên</th><th>Liên hệ</th><th>SP</th><th>Trạng thái</th><th>Thao tác</th></tr></thead>
+      <tbody>
+        <% suppliers.forEach(s => { %>
+        <tr>
+          <td><strong><%= s.name %></strong></td>
+          <td><%= s.phone || s.email || '-' %></td>
+          <td><%= s.product_count %></td>
+          <td><span class="badge badge-<%= s.is_active ? 'success' : 'secondary' %>"><%= s.is_active ? 'Hoạt động' : 'Ẩn' %></span></td>
+          <td>
+            <button class="btn btn-sm btn-outline"
+              onclick="openEditSup(<%= s.id %>,
+                '<%= s.name.replace(/'/g,"\\'") %>',
+                '<%= (s.email||'').replace(/'/g,"\\'") %>',
+                '<%= (s.phone||'').replace(/'/g,"\\'") %>',
+                '<%= (s.address||'').replace(/'/g,"\\'") %>',
+                '<%= (s.website||'').replace(/'/g,"\\'") %>',
+                <%= s.is_active %>)">
+              <i class="fas fa-pen"></i> Sửa
+            </button>
+            <form action="/admin/suppliers/<%= s.id %>/delete" method="POST" style="display:inline">
+              <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Xóa nhà cung cấp này?')">
+                <i class="fas fa-trash"></i> Xóa
+              </button>
+            </form>
+          </td>
+        </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <h3>Thêm nhà cung cấp mới</h3>
+    <form method="POST" action="/admin/suppliers">
+      <div class="form-group"><label>Tên *</label><input type="text" name="name" class="form-control" required></div>
+      <div class="form-group"><label>Email</label><input type="email" name="email" class="form-control"></div>
+      <div class="form-group"><label>Điện thoại</label><input type="tel" name="phone" class="form-control"></div>
+      <div class="form-group"><label>Địa chỉ</label><input type="text" name="address" class="form-control"></div>
+      <div class="form-group"><label>Website</label><input type="text" name="website" class="form-control"></div>
+      <button type="submit" class="btn btn-primary"><i class="fas fa-plus"></i> Thêm nhà cung cấp</button>
+    </form>
+  </div>
+</div>
+
+<!-- Edit Modal -->
+<div class="edit-modal" id="supModal">
+  <div class="modal-box">
+    <h3><i class="fas fa-pen" style="color:#4e9af1"></i> Sửa nhà cung cấp</h3>
+    <form method="POST" id="supEditForm">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem">
+        <div class="mform-group"><label>Tên *</label><input type="text" name="name" id="eName" required></div>
+        <div class="mform-group"><label>Điện thoại</label><input type="tel" name="phone" id="ePhone"></div>
+        <div class="mform-group"><label>Email</label><input type="email" name="email" id="eEmail"></div>
+        <div class="mform-group"><label>Website</label><input type="text" name="website" id="eWebsite"></div>
+      </div>
+      <div class="mform-group"><label>Địa chỉ</label><input type="text" name="address" id="eAddress"></div>
+      <div class="mform-group">
+        <label>Trạng thái</label>
+        <select name="is_active" id="eActive">
+          <option value="1">Hoạt động</option>
+          <option value="0">Ẩn</option>
+        </select>
+      </div>
+      <div class="modal-btns">
+        <button type="button" class="btn-modal-cancel" onclick="closeSupModal()">Hủy</button>
+        <button type="submit" class="btn-modal-save"><i class="fas fa-save"></i> Lưu thay đổi</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+function openEditSup(id, name, email, phone, address, website, active) {
+  document.getElementById('supEditForm').action = '/admin/suppliers/' + id;
+  document.getElementById('eName').value    = name;
+  document.getElementById('eEmail').value   = email;
+  document.getElementById('ePhone').value   = phone;
+  document.getElementById('eAddress').value = address;
+  document.getElementById('eWebsite').value = website;
+  document.getElementById('eActive').value  = active;
+  document.getElementById('supModal').classList.add('active');
+}
+function closeSupModal() { document.getElementById('supModal').classList.remove('active'); }
+document.getElementById('supModal').addEventListener('click', e => { if (e.target === e.currentTarget) closeSupModal(); });
+</script>
+
+<%- include('../partials/admin-footer') %>

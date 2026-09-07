@@ -1,0 +1,42 @@
+<%- include('../partials/admin-header') %>
+<div class="toolbar">
+  <form method="GET" action="/admin/orders" class="search-form">
+    <input type="text" name="search" value="<%= query.search || '' %>" placeholder="Tìm đơn hàng..." class="form-control">
+    <select name="status" class="form-control">
+      <option value="">Tất cả trạng thái</option>
+      <option value="pending"   <%= query.status === 'pending'   ? 'selected' : '' %>>Chờ xử lý</option>
+      <option value="confirmed" <%= query.status === 'confirmed' ? 'selected' : '' %>>Đã xác nhận</option>
+      <option value="shipping"  <%= query.status === 'shipping'  ? 'selected' : '' %>>Đang giao</option>
+      <option value="delivered" <%= query.status === 'delivered' ? 'selected' : '' %>>Đã giao</option>
+      <option value="completed" <%= query.status === 'completed' ? 'selected' : '' %>>Hoàn thành</option>
+      <option value="cancelled" <%= query.status === 'cancelled' ? 'selected' : '' %>>Đã hủy</option>
+    </select>
+    <button type="submit" class="btn btn-outline">Lọc</button>
+  </form>
+</div>
+<div class="card">
+  <table class="table">
+    <thead><tr><th>Mã đơn</th><th>Khách hàng</th><th>Sản Phẩm</th><th>Tổng tiền</th><th>Trạng thái</th><th>Ngày đặt</th><th></th></tr></thead>
+    <tbody>
+      <% orders.forEach(o => { %>
+      <tr>
+        <td><strong>#<%= o.order_code %></strong></td>
+        <td><%= o.full_name %></td>
+        <td><%= o.phone %></td>
+        <td><%= Number(o.total).toLocaleString('vi-VN') %>đ</td>
+        <td><span class="badge badge-<%= ['delivered','completed'].includes(o.order_status) ? 'success' : o.order_status === 'cancelled' ? 'danger' : 'warning' %>"><%= o.order_status === 'pending' ? 'Chờ xử lý' : o.order_status === 'confirmed' ? 'Đã xác nhận' : o.order_status === 'shipping' ? 'Đang giao' : o.order_status === 'delivered' ? 'Đã giao' : o.order_status === 'completed' ? 'Hoàn thành' : 'Đã hủy' %></span></td>
+        <td><%= new Date(o.created_at).toLocaleDateString('vi-VN') %></td>
+        <td><a href="/admin/orders/<%= o.id %>" class="btn btn-sm btn-outline">Chi tiết</a></td>
+      </tr>
+      <% }) %>
+    </tbody>
+  </table>
+  <% if (pagination.totalPages > 1) { %>
+  <div class="pagination">
+    <% for (let i = 1; i <= pagination.totalPages; i++) { %>
+      <a href="?page=<%= i %>" class="page-btn <%= i === pagination.page ? 'active' : '' %>"><%= i %></a>
+    <% } %>
+  </div>
+  <% } %>
+</div>
+<%- include('../partials/admin-footer') %>

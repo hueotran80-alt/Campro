@@ -1,0 +1,24 @@
+<%- include('../partials/header') %>
+<div class="container" style="padding:2rem 0">
+  <div class="article-layout">
+    <article class="article-main">
+      <% if (article.thumbnail) { %><img src="/uploads/<%= article.thumbnail %>" alt="<%= article.title %>" style="width:100%;border-radius:8px;margin-bottom:1rem"><% } %>
+      <h1><%= article.title %></h1>
+      <p class="article-meta"><i class="fas fa-user"></i> <%= article.author_name %> &nbsp; <i class="fas fa-calendar"></i> <%= new Date(article.created_at).toLocaleDateString('vi-VN') %></p>
+      <div class="article-content"><%- article.content %></div>
+    </article>
+    <aside>
+      <h3>Bài viết khác</h3>
+      <% related.forEach(r => { %>
+      <div class="related-news-item">
+        <a href="/news/<%= r.slug %>">
+          <% if (r.thumbnail) { %><img src="/uploads/<%= r.thumbnail %>" alt="<%= r.title %>"><% } %>
+          <span><%= r.title %></span>
+        </a>
+      </div>
+      <% }) %>
+    </aside>
+  </div>
+  <a href="/news" class="btn btn-outline" style="margin-top:1rem">← Quay lại tin tức</a>
+</div>
+<%- include('../partials/footer') %>

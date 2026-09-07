@@ -1,0 +1,10 @@
+const router = require('express').Router();
+const { index, add, update, remove, clear } = require('../controllers/cart.controller');
+const { requireLogin } = require('../middleware/auth.middleware');
+router.use(requireLogin);
+router.get('/',             index);
+router.post('/add',         add);
+router.post('/update/:id',  update);
+router.post('/remove/:id',  remove);
+router.post('/clear',       clear);
+module.exports = router;

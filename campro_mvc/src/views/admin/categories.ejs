@@ -1,0 +1,85 @@
+<%- include('../partials/admin-header') %>
+<style>
+.edit-modal { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:1000; align-items:center; justify-content:center; }
+.edit-modal.active { display:flex; }
+.modal-box { background:#1e2130; border-radius:12px; padding:2rem; width:460px; max-width:95%; border:1px solid rgba(255,255,255,0.1); }
+.modal-box h3 { color:#fff; font-size:1.1rem; font-weight:700; margin-bottom:1.25rem; }
+.mform-group { margin-bottom:1rem; }
+.mform-group label { display:block; color:#aaa; font-size:0.82rem; font-weight:600; margin-bottom:0.3rem; }
+.mform-group input, .mform-group textarea { width:100%; background:#252836; border:1px solid rgba(255,255,255,0.12); color:#fff; border-radius:8px; padding:0.55rem 0.9rem; font-size:0.88rem; outline:none; }
+.mform-group input:focus, .mform-group textarea:focus { border-color:#4e9af1; }
+.modal-btns { display:flex; gap:0.75rem; margin-top:1.25rem; justify-content:flex-end; }
+.btn-modal-save { background:#4e9af1; color:#fff; border:none; border-radius:8px; padding:0.5rem 1.4rem; font-size:0.88rem; font-weight:700; cursor:pointer; }
+.btn-modal-cancel { background:#374151; color:#ccc; border:none; border-radius:8px; padding:0.5rem 1.2rem; font-size:0.88rem; cursor:pointer; }
+</style>
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:2rem">
+  <div class="card">
+    <h3>Danh sách danh mục</h3>
+    <table class="table">
+      <thead><tr><th>Tên</th><th>Sản phẩm</th><th>Trạng thái</th><th>Thao tác</th></tr></thead>
+      <tbody>
+        <% categories.forEach(c => { %>
+        <tr>
+          <td><strong><%= c.name %></strong><br><small style="color:#888"><%= c.description || '' %></small></td>
+          <td><%= c.product_count %></td>
+          <td><span class="badge badge-<%= c.is_active ? 'success' : 'secondary' %>"><%= c.is_active ? 'Hiện' : 'Ẩn' %></span></td>
+          <td>
+            <button class="btn btn-sm btn-outline"
+              onclick="openEditCat(<%= c.id %>, '<%= c.name.replace(/'/g,"\\'") %>', `<%= (c.description||'').replace(/`/g,'\\`') %>`, <%= c.is_active %>)">
+              <i class="fas fa-pen"></i> Sửa
+            </button>
+            <form action="/admin/categories/<%= c.id %>/delete" method="POST" style="display:inline">
+              <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Xóa danh mục?')"><i class="fas fa-trash"></i> Xóa</button>
+            </form>
+          </td>
+        </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  </div>
+  <div class="card">
+    <h3>Thêm danh mục mới</h3>
+    <form method="POST" action="/admin/categories">
+      <div class="form-group"><label>Tên danh mục *</label><input type="text" name="name" class="form-control" required></div>
+      <div class="form-group"><label>Mô tả</label><textarea name="description" class="form-control" rows="3"></textarea></div>
+      <button type="submit" class="btn btn-primary">Thêm danh mục</button>
+    </form>
+  </div>
+</div>
+
+<!-- Edit Modal -->
+<div class="edit-modal" id="catModal">
+  <div class="modal-box">
+    <h3><i class="fas fa-pen" style="color:#4e9af1"></i> Sửa danh mục</h3>
+    <form method="POST" id="catEditForm">
+      <div class="mform-group"><label>Tên danh mục *</label><input type="text" name="name" id="editCatName" required></div>
+      <div class="mform-group"><label>Mô tả</label><textarea name="description" id="editCatDesc" rows="3"></textarea></div>
+      <div class="mform-group">
+        <label>Trạng thái</label>
+        <select name="is_active" id="editCatActive" style="width:100%;background:#252836;border:1px solid rgba(255,255,255,0.12);color:#fff;border-radius:8px;padding:0.55rem 0.9rem;font-size:0.88rem;outline:none">
+          <option value="1">Hiển thị</option>
+          <option value="0">Ẩn</option>
+        </select>
+      </div>
+      <div class="modal-btns">
+        <button type="button" class="btn-modal-cancel" onclick="closeCatModal()">Hủy</button>
+        <button type="submit" class="btn-modal-save"><i class="fas fa-save"></i> Lưu thay đổi</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+function openEditCat(id, name, desc, active) {
+  document.getElementById('catEditForm').action = '/admin/categories/' + id;
+  document.getElementById('editCatName').value = name;
+  document.getElementById('editCatDesc').value = desc;
+  document.getElementById('editCatActive').value = active;
+  document.getElementById('catModal').classList.add('active');
+}
+function closeCatModal() { document.getElementById('catModal').classList.remove('active'); }
+document.getElementById('catModal').addEventListener('click', e => { if (e.target === e.currentTarget) closeCatModal(); });
+</script>
+
+<%- include('../partials/admin-footer') %>

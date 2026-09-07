@@ -1,0 +1,30 @@
+<%- include('../partials/admin-header') %>
+<div class="toolbar">
+  <h3>Danh sách bài viết (<%= news.length %>)</h3>
+  <a href="/admin/news/create" class="btn btn-primary"><i class="fas fa-plus"></i> Thêm bài viết</a>
+</div>
+<div class="card">
+  <table class="table">
+    <thead><tr><th>Ảnh</th><th>Tiêu đề</th><th>Tác giả</th><th>Trạng thái</th><th>Ngày tạo</th><th>Thao tác</th></tr></thead>
+    <tbody>
+      <% news.forEach(n => { %>
+      <tr>
+        <td>
+          <% if (n.thumbnail) { %><img src="/uploads/<%= n.thumbnail %>" style="width:60px;height:45px;object-fit:cover;border-radius:4px"><% } else { %><span>-</span><% } %>
+        </td>
+        <td><strong><%= n.title %></strong></td>
+        <td><%= n.author_name || '-' %></td>
+        <td><span class="badge badge-<%= n.is_published ? 'success' : 'secondary' %>"><%= n.is_published ? 'Đã đăng' : 'Nháp' %></span></td>
+        <td><%= new Date(n.created_at).toLocaleDateString('vi-VN') %></td>
+        <td>
+          <a href="/admin/news/<%= n.id %>/edit" class="btn btn-sm btn-outline">Sửa</a>
+          <form action="/admin/news/<%= n.id %>/delete" method="POST" style="display:inline">
+            <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Xóa bài viết?')">Xóa</button>
+          </form>
+        </td>
+      </tr>
+      <% }) %>
+    </tbody>
+  </table>
+</div>
+<%- include('../partials/admin-footer') %>

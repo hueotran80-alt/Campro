@@ -1,0 +1,38 @@
+<%- include('../partials/admin-header') %>
+<div class="toolbar">
+  <form method="GET" action="/admin/contacts" class="search-form">
+    <select name="status" class="form-control">
+      <option value="">Tất cả</option>
+      <option value="unread"  <%= query.status === 'unread'  ? 'selected' : '' %>>Chưa đọc</option>
+      <option value="read"    <%= query.status === 'read'    ? 'selected' : '' %>>Đã đọc</option>
+      <option value="replied" <%= query.status === 'replied' ? 'selected' : '' %>>Đã trả lời</option>
+    </select>
+    <button type="submit" class="btn btn-outline">Lọc</button>
+  </form>
+</div>
+<div class="card">
+  <% contacts.forEach(c => { %>
+  <div class="contact-item" style="border-bottom:1px solid #eee;padding:1rem 0">
+    <div style="display:flex;justify-content:space-between;align-items:start">
+      <div>
+        <strong><%= c.full_name %></strong> — <%= c.email %> <% if (c.phone) { %>| <%= c.phone %><% } %>
+        <span class="badge badge-<%= c.status === 'unread' ? 'danger' : c.status === 'replied' ? 'success' : 'secondary' %>" style="margin-left:8px"><%= c.status %></span>
+        <% if (c.subject) { %><p><em>Chủ đề: <%= c.subject %></em></p><% } %>
+        <p><%= c.message %></p>
+        <% if (c.admin_reply) { %><p style="color:#6c63ff;background:#f0eeff;padding:8px;border-radius:4px"><strong>Phản hồi:</strong> <%= c.admin_reply %></p><% } %>
+      </div>
+      <div style="display:flex;gap:8px;flex-shrink:0">
+        <form action="/admin/contacts/<%= c.id %>/delete" method="POST">
+          <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Xóa liên hệ?')">Xóa</button>
+        </form>
+      </div>
+    </div>
+    <form method="POST" action="/admin/contacts/<%= c.id %>/reply" style="margin-top:8px;display:flex;gap:8px">
+      <input type="text" name="admin_reply" class="form-control" placeholder="Nhập phản hồi..." value="<%= c.admin_reply || '' %>">
+      <button type="submit" class="btn btn-primary btn-sm">Gửi</button>
+    </form>
+  </div>
+  <% }) %>
+  <% if (contacts.length === 0) { %><p class="text-center" style="color:#999;padding:2rem">Không có liên hệ nào.</p><% } %>
+</div>
+<%- include('../partials/admin-footer') %>

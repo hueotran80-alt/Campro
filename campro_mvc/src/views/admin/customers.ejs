@@ -1,0 +1,127 @@
+<%- include('../partials/admin-header') %>
+<style>
+.edit-modal { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:1000; align-items:center; justify-content:center; }
+.edit-modal.active { display:flex; }
+.modal-box { background:#1e2130; border-radius:12px; padding:2rem; width:520px; max-width:95%; border:1px solid rgba(255,255,255,0.1); }
+.modal-box h3 { color:#fff; font-size:1.1rem; font-weight:700; margin-bottom:1.25rem; }
+.mform-group { margin-bottom:1rem; }
+.mform-group label { display:block; color:#aaa; font-size:0.82rem; font-weight:600; margin-bottom:0.3rem; }
+.mform-group input, .mform-group select, .mform-group textarea {
+  width:100%; background:#252836; border:1px solid rgba(255,255,255,0.12);
+  color:#fff; border-radius:8px; padding:0.55rem 0.9rem; font-size:0.88rem; outline:none;
+}
+.mform-group input:focus { border-color:#4e9af1; }
+.modal-btns { display:flex; gap:0.75rem; margin-top:1.25rem; justify-content:flex-end; }
+.btn-modal-save   { background:#4e9af1; color:#fff; border:none; border-radius:8px; padding:0.5rem 1.4rem; font-size:0.88rem; font-weight:700; cursor:pointer; }
+.btn-modal-cancel { background:#374151; color:#ccc; border:none; border-radius:8px; padding:0.5rem 1.2rem; font-size:0.88rem; cursor:pointer; }
+</style>
+
+<div class="toolbar">
+  <form method="GET" action="/admin/customers" class="search-form">
+    <input type="text" name="search" value="<%= query.search || '' %>" placeholder="Tìm khách hàng..." class="form-control">
+    <button type="submit" class="btn btn-outline"><i class="fas fa-search"></i> Tìm</button>
+  </form>
+</div>
+
+<div class="card">
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Họ tên</th><th>Username</th><th>Email</th>
+        <th>Điện thoại</th><th>Ngày đăng ký</th><th>Trạng thái</th><th>Thao tác</th>
+      </tr>
+    </thead>
+    <tbody>
+      <% customers.forEach(c => { %>
+      <tr>
+        <td><strong><%= c.full_name %></strong></td>
+        <td><%= c.username %></td>
+        <td><%= c.email %></td>
+        <td><%= c.phone || '-' %></td>
+        <td><%= new Date(c.created_at).toLocaleDateString('vi-VN') %></td>
+        <td>
+          <form action="/admin/customers/<%= c.id %>/toggle" method="POST" style="display:inline">
+            <button type="submit" class="badge badge-<%= c.is_active ? 'success' : 'secondary' %>"
+              style="border:none;cursor:pointer;padding:4px 10px">
+              <%= c.is_active ? 'Hoạt động' : 'Bị khóa' %>
+            </button>
+          </form>
+        </td>
+        <td>
+          <button class="btn btn-sm btn-outline"
+            onclick="openEditCust(
+              <%= c.id %>,
+              '<%= c.full_name.replace(/'/g,"\\'") %>',
+              '<%= (c.phone||'').replace(/'/g,"\\'") %>',
+              '<%= (c.address||'').replace(/'/g,"\\'") %>',
+              <%= c.is_active %>)">
+            <i class="fas fa-pen"></i> Sửa
+          </button>
+          <form action="/admin/customers/<%= c.id %>/delete" method="POST" style="display:inline">
+            <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Xóa khách hàng này?')">
+              <i class="fas fa-trash"></i> Xóa
+            </button>
+          </form>
+        </td>
+      </tr>
+      <% }) %>
+    </tbody>
+  </table>
+  <% if (pagination.totalPages > 1) { %>
+  <div class="pagination">
+    <% for (let i = 1; i <= pagination.totalPages; i++) { %>
+      <a href="?page=<%= i %><%= query.search ? '&search=' + query.search : '' %>"
+         class="page-btn <%= i === pagination.page ? 'active' : '' %>"><%= i %></a>
+    <% } %>
+  </div>
+  <% } %>
+</div>
+
+<!-- Edit Modal -->
+<div class="edit-modal" id="custModal">
+  <div class="modal-box">
+    <h3><i class="fas fa-user-edit" style="color:#4e9af1"></i> Sửa thông tin khách hàng</h3>
+    <form method="POST" id="custEditForm">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem">
+        <div class="mform-group" style="grid-column:1/-1">
+          <label>Họ và tên *</label>
+          <input type="text" name="full_name" id="cFullName" required>
+        </div>
+        <div class="mform-group">
+          <label>Điện thoại</label>
+          <input type="tel" name="phone" id="cPhone">
+        </div>
+        <div class="mform-group">
+          <label>Trạng thái</label>
+          <select name="is_active" id="cActive">
+            <option value="1">Hoạt động</option>
+            <option value="0">Bị khóa</option>
+          </select>
+        </div>
+        <div class="mform-group" style="grid-column:1/-1">
+          <label>Địa chỉ</label>
+          <textarea name="address" id="cAddress" rows="2"></textarea>
+        </div>
+      </div>
+      <div class="modal-btns">
+        <button type="button" class="btn-modal-cancel" onclick="closeCustModal()">Hủy</button>
+        <button type="submit" class="btn-modal-save"><i class="fas fa-save"></i> Lưu thay đổi</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+function openEditCust(id, fullName, phone, address, active) {
+  document.getElementById('custEditForm').action = '/admin/customers/' + id + '/update';
+  document.getElementById('cFullName').value = fullName;
+  document.getElementById('cPhone').value    = phone;
+  document.getElementById('cAddress').value  = address;
+  document.getElementById('cActive').value   = active;
+  document.getElementById('custModal').classList.add('active');
+}
+function closeCustModal() { document.getElementById('custModal').classList.remove('active'); }
+document.getElementById('custModal').addEventListener('click', e => { if (e.target === e.currentTarget) closeCustModal(); });
+</script>
+
+<%- include('../partials/admin-footer') %>
