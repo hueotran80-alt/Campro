@@ -1,4 +1,4 @@
-// mqtt-worker/bridge.js
+// server/MQTT/bridge.js
 // ============================================================
 // MQTT <-> Supabase bridge
 // ESP8266 <-> MQTT <-> Bridge <-> Supabase
@@ -7,7 +7,6 @@
 import "dotenv/config";
 import mqtt from "mqtt";
 import { createClient } from "@supabase/supabase-js";
-import { createServer } from "node:http";
 
 // ============================================================
 // CẤU HÌNH
@@ -19,12 +18,12 @@ const SERVICE_ROLE_KEY =
 
 const MQTT_URL =
   process.env.MQTT_URL ||
-  "mqtt://broker.hivemq.com:1883";
+  "mqtt://test.mosquitto.org:1883";
 
 const DEVICE_CODE = "ESP-MAIN-DOOR";
 
 // Firmware hiện tại heartbeat mỗi 5 giây.
-// Cho phép tối đa thêm ~1 chu kỳ ngắn để đánh dấu offline.
+  // Cho phép tối đa thêm ~1 chu kỳ ngắn để đánh dấu offline.
 const OFFLINE_TIMEOUT_MS = 6500;
 
 // ============================================================
@@ -61,13 +60,20 @@ const TOPIC_STATE =
 const TOPIC_EVENT =
   "smartbuilding/door/event";
 
+const TOPIC_CONFIG = process.env.MQTT_CONFIG_TOPIC ||
+  "smartbuilding/door/config/ESP-MAIN-DOOR/17d657b03d77019043a490dd";
+
 // ============================================================
 // BIẾN TRẠNG THÁI
 // ============================================================
 
 let deviceId = null;
+
 let lastSeen = 0;
+
 let markedOffline = false;
+
+let lastKeypadConfigVersionSent = 0;
 
 // ============================================================
 // TÌM ESP-MAIN-DOOR
@@ -115,6 +121,7 @@ async function markOnline(online) {
     return;
   }
 
+  // Cập nhật bảng devices
   const devicePayload = {
     online,
     ...(online
@@ -135,6 +142,7 @@ async function markOnline(online) {
     );
   }
 
+  // Cập nhật trạng thái cửa thật
   const { error: stateError } =
     await supabase
       .from("door_states")
@@ -154,7 +162,9 @@ async function markOnline(online) {
   markedOffline = !online;
 
   console.log(
-    `[bridge] ESP-MAIN-DOOR = ${online ? "ONLINE" : "OFFLINE"}`
+    `[bridge] ESP-MAIN-DOOR = ${
+      online ? "ONLINE" : "OFFLINE"
+    }`
   );
 }
 
@@ -190,6 +200,7 @@ async function applyState(payload) {
     return;
   }
 
+  // ESP đã gửi heartbeat/state -> cập nhật last_seen.
   await supabase
     .from("devices")
     .update({
@@ -197,6 +208,10 @@ async function applyState(payload) {
       last_seen: new Date().toISOString(),
     })
     .eq("id", id);
+
+  // ----------------------------------------------------------
+  // ESP đã mở khóa
+  // ----------------------------------------------------------
 
   if (value === "UNLOCKED") {
     const { error } =
@@ -218,6 +233,10 @@ async function applyState(payload) {
     }
   }
 
+  // ----------------------------------------------------------
+  // ESP đã khóa
+  // ----------------------------------------------------------
+
   else if (value === "LOCKED") {
     const { error } =
       await supabase
@@ -238,6 +257,10 @@ async function applyState(payload) {
     }
   }
 
+  // ----------------------------------------------------------
+  // Nhập sai PIN
+  // ----------------------------------------------------------
+
   else if (value === "WRONG_PIN") {
     const { error } =
       await supabase
@@ -256,6 +279,8 @@ async function applyState(payload) {
     }
   }
 
+  // Nếu trước đó đang Offline
+  // nhưng ESP vừa gửi trạng thái
   if (markedOffline) {
     await markOnline(true);
   }
@@ -264,14 +289,12 @@ async function applyState(payload) {
 // ============================================================
 // GỬI LỆNH WEB QUA MQTT
 // ============================================================
-
 async function processPendingCommand() {
   if (!client.connected) {
     return;
   }
 
   const command = await getPendingCommand();
-
   if (!command) {
     return;
   }
@@ -337,12 +360,28 @@ async function processPendingCommand() {
 }
 
 // ============================================================
-// LẤY LỆNH WEB ĐANG CHỜ
+// XỬ LÝ EVENT
+//
+// ESP gửi JSON:
+//
+// {
+//   "source": "Keypad Vat Ly",
+//   "result": "SUCCESS"
+// }
+//
+// hoặc:
+//
+// {
+//   "source": "Keypad Vat Ly",
+//   "result": "FAILED"
+// }
 // ============================================================
 
+// ============================================================
+// LẤY LỆNH WEB ĐANG CHỜ
+// ============================================================
 async function getPendingCommand() {
   const id = await ensureDevice();
-
   if (!id) {
     return null;
   }
@@ -392,9 +431,63 @@ async function getPendingCommand() {
 }
 
 // ============================================================
+// ĐỒNG BỘ CẤU HÌNH KEYPAD XUỐNG ESP
+// ============================================================
+async function processKeypadConfig() {
+  if (!client.connected) return;
+
+  const id = await ensureDevice();
+  if (!id) return;
+
+  const { data: config, error } = await supabase
+    .from("door_keypad_configs")
+    .select("pin_hash,pin_length,pin_version,keypad_enabled,confirm_key,clear_key")
+    .eq("device_id", id)
+    .maybeSingle();
+
+  if (error) {
+    console.error("❌ Không đọc được cấu hình Keypad:", error);
+    return;
+  }
+
+  if (!config || Number(config.pin_version) <= lastKeypadConfigVersionSent) {
+    return;
+  }
+
+  const payload = [
+    "CFG",
+    String(config.pin_version),
+    config.pin_hash,
+    String(config.pin_length),
+    config.keypad_enabled ? "1" : "0",
+    config.confirm_key,
+    config.clear_key,
+  ].join("|");
+
+  client.publish(
+    TOPIC_CONFIG,
+    payload,
+    { qos: 1, retain: true },
+    (publishError) => {
+      if (publishError) {
+        console.error("❌ Không gửi được cấu hình Keypad:", publishError);
+        return;
+      }
+
+      lastKeypadConfigVersionSent = Number(config.pin_version);
+      console.log(
+        "✅ Đã gửi cấu hình Keypad phiên bản:",
+        config.pin_version,
+        "enabled:",
+        config.keypad_enabled
+      );
+    }
+  );
+}
+
+// ============================================================
 // XỬ LÝ EVENT
 // ============================================================
-
 async function applyEvent(payload) {
   lastSeen = Date.now();
 
@@ -421,6 +514,31 @@ async function applyEvent(payload) {
   const id = await ensureDevice();
 
   if (!id) {
+    return;
+  }
+
+  // ==========================================================
+  // Bàn phím vật lý
+  // ==========================================================
+  if (event.source === "Keypad Config") {
+    const version = Number(event.version);
+
+    if (event.result === "SUCCESS" && Number.isFinite(version) && version > 0) {
+      const { error: configAckError } = await supabase
+        .from("door_keypad_configs")
+        .update({ applied_version: version })
+        .eq("device_id", id)
+        .lt("applied_version", version);
+
+      if (configAckError) {
+        console.error("❌ Không cập nhật được applied_version Keypad:", configAckError);
+      } else {
+        console.log("✅ ESP đã áp dụng cấu hình Keypad phiên bản:", version);
+      }
+    } else {
+      console.warn("⚠ ESP từ chối cấu hình Keypad phiên bản:", version);
+    }
+
     return;
   }
 
@@ -452,6 +570,9 @@ async function applyEvent(payload) {
     return;
   }
 
+  // ==========================================================
+  // Mở cửa từ Web / sinh trắc học điện thoại
+  // ==========================================================
   if (event.source === "MQTT Web") {
     const { data: command, error: commandError } =
       await supabase
@@ -567,10 +688,9 @@ async function applyEvent(payload) {
           device_id: id,
           person_name: personName,
           room_number: roomNumber,
-          method:
-            command.source === "FACE"
-              ? "FACE"
-              : command.source,
+          method: command.source === "FACE"
+            ? "FACE"
+            : command.source,
           result,
         });
 
@@ -609,10 +729,7 @@ async function applyEvent(payload) {
       "✅ Đã xác nhận door_command:",
       command.id,
       command.source,
-      personName ??
-        command.occupant_id ??
-        command.user_id ??
-        "unknown",
+      personName ?? command.occupant_id ?? command.user_id ?? "unknown",
       result
     );
 
@@ -638,145 +755,64 @@ const client = mqtt.connect(
 );
 
 // ============================================================
-// RENDER HEALTH ENDPOINT
-// ============================================================
-
-const PORT = Number(
-  process.env.PORT || 10000
-);
-
-const healthServer = createServer(
-  (req, res) => {
-    if (
-      req.url === "/health" ||
-      req.url === "/"
-    ) {
-      res.writeHead(
-        200,
-        {
-          "content-type":
-            "application/json",
-        }
-      );
-
-      res.end(
-        JSON.stringify({
-          ok: true,
-          mqtt_connected:
-            client?.connected ??
-            false,
-          device: DEVICE_CODE,
-        })
-      );
-
-      return;
-    }
-
-    res.writeHead(404);
-    res.end("Not found");
-  }
-);
-
-healthServer.listen(
-  PORT,
-  "0.0.0.0",
-  () => {
-    console.log(
-      `[bridge] Health server listening on :${PORT}`
-    );
-  }
-);
-
-function shutdown(signal) {
-  console.log(
-    `[bridge] ${signal}: shutting down...`
-  );
-
-  healthServer.close();
-
-  client.end(
-    false,
-    {},
-    () => process.exit(0)
-  );
-
-  setTimeout(
-    () => process.exit(1),
-    5000
-  ).unref();
-}
-
-process.on(
-  "SIGTERM",
-  () => shutdown("SIGTERM")
-);
-
-process.on(
-  "SIGINT",
-  () => shutdown("SIGINT")
-);
-
-// ============================================================
 // MQTT CONNECT
 // ============================================================
 
-client.on(
-  "connect",
-  async () => {
-    console.log(
-      "================================================"
-    );
+client.on("connect", async () => {
+  console.log(
+    "================================================"
+  );
 
-    console.log(
-      "✅ [bridge] Đã kết nối MQTT"
-    );
+  console.log(
+    "✅ [bridge] Đã kết nối MQTT"
+  );
 
-    console.log(
-      "Broker:",
-      MQTT_URL
-    );
+  console.log(
+    "Broker:",
+    MQTT_URL
+  );
 
-    console.log(
-      "Device:",
-      DEVICE_CODE
-    );
+  console.log(
+    "Device:",
+    DEVICE_CODE
+  );
 
-    console.log(
-      "================================================"
-    );
+  console.log(
+    "================================================"
+  );
 
-    client.subscribe(
-      [
-        TOPIC_STATE,
-        TOPIC_EVENT,
-      ],
-      (error) => {
-        if (error) {
-          console.error(
-            "❌ Subscribe MQTT lỗi:",
-            error
-          );
-
-          return;
-        }
-
-        console.log(
-          "✅ Đã subscribe:"
+  client.subscribe(
+    [
+      TOPIC_STATE,
+      TOPIC_EVENT,
+    ],
+    (error) => {
+      if (error) {
+        console.error(
+          "❌ Subscribe MQTT lỗi:",
+          error
         );
 
-        console.log(
-          "   ",
-          TOPIC_STATE
-        );
-
-        console.log(
-          "   ",
-          TOPIC_EVENT
-        );
+        return;
       }
-    );
-  }
-);
+
+      console.log(
+        "✅ Đã subscribe:"
+      );
+
+      console.log(
+        "   ",
+        TOPIC_STATE
+      );
+
+      console.log(
+        "   ",
+        TOPIC_EVENT
+      );
+    }
+  );
+
+});
 
 // ============================================================
 // MQTT MESSAGE
@@ -808,22 +844,22 @@ client.on(
 );
 
 // ============================================================
+// ============================================================
 // KIỂM TRA LỆNH WEB ĐANG CHỜ
 // ============================================================
 
-setInterval(
-  () => {
-    processPendingCommand().catch(
-      (error) => {
-        console.error(
-          "❌ Lỗi xử lý door command:",
-          error
-        );
-      }
+setInterval(() => {
+
+  processPendingCommand().catch((error) => {
+
+    console.error(
+      "❌ Lỗi xử lý door command:",
+      error
     );
-  },
-  1000
-);
+
+  });
+
+}, 1000);
 
 // ============================================================
 // MQTT RECONNECT
@@ -869,38 +905,34 @@ client.on(
 // KIỂM TRA ESP CÒN HOẠT ĐỘNG KHÔNG
 // ============================================================
 
-setInterval(
-  () => {
-    if (
-      !markedOffline &&
-      Date.now() - lastSeen >=
-        OFFLINE_TIMEOUT_MS
-    ) {
-      console.warn(
-        "⚠ Không nhận được dữ liệu từ ESP-MAIN-DOOR."
-      );
+setInterval(() => {
+  if (
+    !markedOffline &&
+    Date.now() - lastSeen >=
+      OFFLINE_TIMEOUT_MS
+  ) {
+    console.warn(
+      "⚠ Không nhận được dữ liệu từ ESP-MAIN-DOOR."
+    );
 
-      markOnline(
-        false
-      ).catch(console.error);
-    }
-  },
-  1000
-);
+    markOnline(false)
+      .catch(console.error);
+  }
+}, 1000);
 
 // ============================================================
 // KHỞI ĐỘNG
 // ============================================================
 
 ensureDevice()
-  .then(
-    (id) => {
-      if (id) {
-        console.log(
-          "✅ Bridge sẵn sàng cho:",
-          DEVICE_CODE
-        );
-      }
+  .then((id) => {
+    if (id) {
+      console.log(
+        "✅ Bridge sẵn sàng cho:",
+        DEVICE_CODE
+      );
     }
-  )
+  })
   .catch(console.error);
+
+[executed on device: MacBook-Pro-cua-Tran.local (c9c94aa2-2efb-48f8-ac43-bdde97d30e68)]
