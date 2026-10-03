@@ -7,7 +7,7 @@
     "node": ">=22"
   },
   "scripts": {
-    "start": "node mqtt-worker/bridge.js"
+    "start": "node mqtt-worker/bridge-clean.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "2.117.2",
