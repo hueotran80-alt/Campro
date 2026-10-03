@@ -7,6 +7,8 @@ const server = createServer((req, res) => {
     res.writeHead(200, {
       "content-type": "application/json; charset=utf-8",
       "cache-control": "no-store",
+      "access-control-allow-origin": "*",
+      "access-control-allow-methods": "GET, OPTIONS",
     });
     res.end(
       JSON.stringify({
@@ -17,8 +19,19 @@ const server = createServer((req, res) => {
     return;
   }
 
+  if (req.method === "OPTIONS") {
+    res.writeHead(204, {
+      "access-control-allow-origin": "*",
+      "access-control-allow-methods": "GET, OPTIONS",
+      "access-control-allow-headers": "content-type",
+    });
+    res.end();
+    return;
+  }
+
   res.writeHead(404, {
     "content-type": "application/json; charset=utf-8",
+    "access-control-allow-origin": "*",
   });
   res.end(JSON.stringify({ ok: false }));
 });
