@@ -1,0 +1,17 @@
+{
+  "name": "smart-building-mqtt-cloud-worker",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "start": "node bridge.js"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.116.0",
+    "dotenv": "^16.6.1",
+    "mqtt": "^5.10.1"
+  }
+}
