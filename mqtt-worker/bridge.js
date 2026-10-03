@@ -785,6 +785,7 @@ client.on("connect", async () => {
     [
       TOPIC_STATE,
       TOPIC_EVENT,
+      TOPIC_CONFIG,
     ],
     (error) => {
       if (error) {
@@ -808,6 +809,11 @@ client.on("connect", async () => {
       console.log(
         "   ",
         TOPIC_EVENT
+      );
+
+      console.log(
+        "   ",
+        TOPIC_CONFIG
       );
     }
   );
@@ -860,6 +866,12 @@ setInterval(() => {
   });
 
 }, 1000);
+
+setInterval(() => {
+  processKeypadConfig().catch((error) => {
+    console.error("❌ Lỗi đồng bộ cấu hình Keypad:", error);
+  });
+}, 2000);
 
 // ============================================================
 // MQTT RECONNECT
