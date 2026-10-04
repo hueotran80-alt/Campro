@@ -1,1 +1,7 @@
-²ø1šYì
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" role="img" aria-label="CAMPRO">
+<defs><linearGradient id="s" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#27d3ff"/><stop offset="1" stop-color="#1672e8"/></linearGradient><linearGradient id="l" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#0b2b5b"/><stop offset="1" stop-color="#07152d"/></linearGradient></defs>
+<path d="M80 8 145 35v43c0 39-27 61-65 79C42 139 15 117 15 78V35z" fill="#06162f"/>
+<path d="M80 20 133 42v35c0 30-20 49-53 65C47 126 27 107 27 77V42z" fill="url(#s)"/>
+<path d="M47 70c0-10 8-18 18-18h30c10 0 18 8 18 18v24H47z" fill="#fff"/>
+<circle cx="80" cy="82" r="17" fill="url(#l)"/><circle cx="80" cy="82" r="8" fill="#27d3ff"/>
+<path d="M56 52h48l-7-12H63z" fill="#fff"/><path d="M103 69h17l10 9v16h-27z" fill="#fff"/></svg>

@@ -1,1 +1,13 @@
-²ø1šYì
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 180" role="img" aria-labelledby="title desc">
+<title id="title">CAMPRO â€” Camera &amp; Security</title>
+<desc id="desc">CAMPRO camera and security brand logo</desc>
+<defs><linearGradient id="shield" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#27d3ff"/><stop offset="1" stop-color="#1672e8"/></linearGradient><linearGradient id="lens" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#0b2b5b"/><stop offset="1" stop-color="#07152d"/></linearGradient></defs>
+<path d="M78 15 145 43v43c0 39-28 61-67 79C39 147 11 125 11 86V43z" fill="#06162f"/>
+<path d="M78 27 133 50v35c0 31-21 50-55 67C44 135 23 116 23 85V50z" fill="url(#shield)"/>
+<path d="M43 73c0-11 9-20 20-20h30c11 0 20 9 20 20v23H43z" fill="#fff"/>
+<circle cx="78" cy="84" r="17" fill="url(#lens)"/><circle cx="78" cy="84" r="8" fill="#27d3ff"/>
+<path d="M53 53h50l-7-12H60z" fill="#fff"/><path d="M101 72h17l11 10v14h-28z" fill="#fff"/>
+<text x="168" y="92" font-family="Arial,Helvetica,sans-serif" font-size="72" font-weight="800" letter-spacing="2" fill="#222522">CAM</text>
+<text x="338" y="92" font-family="Arial,Helvetica,sans-serif" font-size="72" font-weight="800" letter-spacing="2" fill="#1672e8">PRO</text>
+<rect x="171" y="111" width="330" height="2" rx="1" fill="#d9ddd8"/>
+<text x="171" y="143" font-family="Arial,Helvetica,sans-serif" font-size="19" font-weight="700" letter-spacing="4" fill="#646b64">CAMERA &amp; SECURITY</text></svg>
