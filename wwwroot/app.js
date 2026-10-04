@@ -20,7 +20,7 @@ const product=id=>db.products.find(p=>p.id===Number(id));
 const cartItems=()=>db.cart.map(c=>({...product(c.id),quantity:c.quantity})).filter(p=>p.id&&p.active);
 const subtotal=()=>cartItems().reduce((s,p)=>s+p.price*p.quantity,0);
 function discountFor(code,total){const c=db.coupons.find(c=>c.code===code.toUpperCase()&&c.active);if(!c)return{amount:0,error:'Mã không tồn tại hoặc đã ngừng áp dụng.'};if(total<c.min)return{amount:0,error:'Đơn hàng tối thiểu '+money(c.min)+' để dùng mã này.'};return{amount:Math.min(total,c.type==='percent'?Math.min(total*c.value/100,c.max||Infinity):c.value),error:''}}
-const logo=()=>`<a href="#/" class="logoblock" aria-label="CAMPRO — Trang chủ"><span class="logo">CAM<b>PRO</b><span style="font-size:14px;vertical-align:top">®</span></span><small>CAMERA & GIẢI PHÁP AN NINH</small></a>`;
+const logo=()=>`<a href="#/" class="logoblock brandlogo" aria-label="CAMPRO — Trang chủ"><img src="./assets/campro-logo.svg" alt="CAMPRO — Camera & Security"><span class="brandfallback"><span class="logo">CAM<b>PRO</b></span><small>CAMERA & SECURITY</small></span></a>`;
 const badge=s=>`<span class="badge ${s==='Hoàn thành'||s==='Đã giao'||s==='Đã phản hồi'?'success':s==='Đã hủy'?'neutral':s==='Đang giao'||s==='Đã xác nhận'?'blue':''}">${esc(s)}</span>`;
 const crumb=(title,parent='')=>`<div class="breadcrumb"><a href="#/">Trang chủ</a>${icon('chevron')}${parent?`<a href="#/san-pham">Sản phẩm</a>${icon('chevron')}`:''}<span>${esc(title)}</span></div>`;
 const title=(h,p='')=>`<div class="pagetitle"><h1>${h}</h1>${p?`<p>${p}</p>`:''}</div>`;
