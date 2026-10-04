@@ -1,0 +1,6 @@
+.git
+.gitignore
+obj
+bin
+*.user
+README.md
