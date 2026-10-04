@@ -21,6 +21,7 @@ builder.Services.ConfigureHttpJsonOptions(options =>
     options.SerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase);
 
 var app = builder.Build();
+var demoMode = builder.Configuration.GetValue<bool>("CamPro:DemoMode");
 app.UseExceptionHandler(errorApp => errorApp.Run(async context =>
 {
     context.Response.StatusCode = StatusCodes.Status500InternalServerError;
@@ -30,13 +31,10 @@ app.UseDefaultFiles();
 app.UseStaticFiles();
 app.UseSession();
 
-await app.Services.GetRequiredService<DatabaseInitializer>().InitializeAsync(app.Lifetime.ApplicationStopping);
+if (!demoMode) await app.Services.GetRequiredService<DatabaseInitializer>().InitializeAsync(app.Lifetime.ApplicationStopping); else app.Logger.LogWarning("CAMPRO demo mode: MySQL disabled.");
 
 var api = app.MapGroup("/api");
-api.MapGet("/health", async (StoreRepository repository, CancellationToken ct) =>
-    await repository.PingAsync(ct)
-        ? Results.Ok(new { status = "ok", database = "campro_csharp", serverTime = DateTimeOffset.Now })
-        : Results.Problem("Không kết nối được MySQL."));
+api.MapGet("/health", async (StoreRepository repository, CancellationToken ct) => demoMode ? Results.Ok(new { status = "ok", mode = "demo", serverTime = DateTimeOffset.Now }) : (await repository.PingAsync(ct) ? Results.Ok(new { status = "ok", database = "campro_csharp", serverTime = DateTimeOffset.Now }) : Results.Problem("Không kết nối được MySQL.")));
 
 api.MapGet("/state", async (HttpContext context, StoreRepository repository, CancellationToken ct) =>
 {
@@ -53,7 +51,7 @@ api.MapPost("/state/sync", async (HttpContext context, StoreState state, StoreRe
 
 api.MapPost("/auth/login", async (HttpContext context, LoginRequest request, StoreRepository repository, CancellationToken ct) =>
 {
-    var user = await repository.LoginAsync(request.Email, request.Password, ct);
+    var user = demoMode ? ((request.Email.Trim().ToLowerInvariant(), request.Password) switch { ("admin@campro.vn", "Admin@123") => new CustomerDto { Id=1, Name="Quản trị CAMPRO", Email="admin@campro.vn", Active=true, Role="admin" }, ("minhanh@example.com", "123456") => new CustomerDto { Id=2, Name="Nguyễn Minh Anh", Email="minhanh@example.com", Active=true, Role="customer" }, _ => null }) : await repository.LoginAsync(request.Email, request.Password, ct);
     if (user is null) return Results.BadRequest(new { message = "Email hoặc mật khẩu không đúng, hoặc tài khoản đã bị khóa." });
     context.Session.SetString("userId", user.Id.ToString());
     context.Session.SetString("role", user.Role);
