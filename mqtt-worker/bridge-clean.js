@@ -184,8 +184,6 @@ async function applyState(payload) {
     .toString()
     .trim();
 
-  lastSeen = Date.now();
-
   const id = await ensureDevice();
 
   if (!id) {
