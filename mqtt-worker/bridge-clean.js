@@ -219,7 +219,6 @@ async function applyState(payload) {
         .from("door_states")
         .update({
           lock_status: "UNLOCKED",
-          door_status: "OPEN",
           device_online: true,
           updated_at: new Date().toISOString(),
         })
@@ -243,7 +242,6 @@ async function applyState(payload) {
         .from("door_states")
         .update({
           lock_status: "LOCKED",
-          door_status: "CLOSED",
           device_online: true,
           updated_at: new Date().toISOString(),
         })
@@ -253,6 +251,35 @@ async function applyState(payload) {
       console.error(
         "❌ Lỗi cập nhật LOCKED:",
         error
+      );
+    }
+  }
+
+  // ----------------------------------------------------------
+  // Reed Switch: đây là nguồn duy nhất quyết định DOOR_OPEN/CLOSED.
+  // Relay chỉ quyết định lock_status ở các nhánh UNLOCKED/LOCKED.
+  // ----------------------------------------------------------
+  else if (value === "DOOR_OPEN" || value === "DOOR_CLOSED") {
+    const doorStatus = value === "DOOR_OPEN" ? "OPEN" : "CLOSED";
+
+    const { error } = await supabase
+      .from("door_states")
+      .update({
+        door_status: doorStatus,
+        device_online: true,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("device_id", id);
+
+    if (error) {
+      console.error(
+        "❌ Lỗi cập nhật trạng thái Reed Switch:",
+        error
+      );
+    } else {
+      console.log(
+        "[bridge] Reed Switch ->",
+        doorStatus
       );
     }
   }
