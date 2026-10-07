@@ -356,9 +356,11 @@ async function processPendingCommand() {
     return;
   }
 
+  // Web command OPEN -> firmware command UNLOCK.
+  // Firmware does not handle OPEN directly.
   client.publish(
     TOPIC_COMMAND,
-    "OPEN",
+    "UNLOCK",
     { qos: 1 },
     async (publishError) => {
       if (publishError) {
