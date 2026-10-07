@@ -75,6 +75,79 @@ let markedOffline = false;
 
 let lastKeypadConfigVersionSent = 0;
 
+const DOOR_ALARM_DELAY_MS = 10000;
+let doorAlarmTimer = null;
+let doorAlarmSent = false;
+
+function clearDoorAlarmTimer() {
+  if (doorAlarmTimer !== null) {
+    clearTimeout(doorAlarmTimer);
+    doorAlarmTimer = null;
+  }
+}
+
+function scheduleDoorAlarm(id) {
+  clearDoorAlarmTimer();
+
+  if (doorAlarmSent) {
+    return;
+  }
+
+  doorAlarmTimer = setTimeout(async () => {
+    doorAlarmTimer = null;
+
+    try {
+      const { data: state, error } = await supabase
+        .from("door_states")
+        .select("door_status")
+        .eq("device_id", id)
+        .maybeSingle();
+
+      if (error) {
+        console.error("❌ Không kiểm tra được trạng thái cửa trước cảnh báo:", error);
+        return;
+      }
+
+      // Chỉ báo động nếu Reed Switch vẫn xác nhận cửa OPEN sau đủ 10 giây.
+      if (!state || state.door_status !== "OPEN") {
+        return;
+      }
+
+      const response = await fetch(
+        SUPABASE_URL + "/functions/v1/door-alarm-push",
+        {
+          method: "POST",
+          headers: {
+            Authorization: "Bearer " + SERVICE_ROLE_KEY,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ device_id: id }),
+        }
+      );
+
+      const body = await response.text();
+
+      if (!response.ok) {
+        console.error(
+          "❌ Không gửi được cảnh báo push cửa:",
+          response.status,
+          body
+        );
+        return;
+      }
+
+      doorAlarmSent = true;
+
+      console.log(
+        "🚨 Đã phát cảnh báo cửa mở > 10 giây tới các thiết bị đang đăng nhập:",
+        body
+      );
+    } catch (error) {
+      console.error("❌ Lỗi door alarm push:", error);
+    }
+  }, DOOR_ALARM_DELAY_MS);
+}
+
 // ============================================================
 // TÌM ESP-MAIN-DOOR
 // Database dùng device_code, KHÔNG phải device_uid
@@ -281,6 +354,13 @@ async function applyState(payload) {
         "[bridge] Reed Switch ->",
         doorStatus
       );
+
+      if (doorStatus === "OPEN") {
+        scheduleDoorAlarm(id);
+      } else {
+        clearDoorAlarmTimer();
+        doorAlarmSent = false;
+      }
     }
   }
 
