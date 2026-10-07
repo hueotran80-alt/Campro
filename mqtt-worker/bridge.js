@@ -57,6 +57,9 @@ const TOPIC_COMMAND =
 const TOPIC_STATE =
   "smartbuilding/door/state";
 
+const TOPIC_HEARTBEAT =
+  "smartbuilding/door/heartbeat";
+
 const TOPIC_EVENT =
   "smartbuilding/door/event";
 
@@ -181,8 +184,6 @@ async function applyState(payload) {
     .toString()
     .trim();
 
-  lastSeen = Date.now();
-
   const id = await ensureDevice();
 
   if (!id) {
@@ -200,15 +201,8 @@ async function applyState(payload) {
     return;
   }
 
-  // ESP đã gửi heartbeat/state -> cập nhật last_seen.
-  await supabase
-    .from("devices")
-    .update({
-      online: true,
-      last_seen: new Date().toISOString(),
-    })
-    .eq("id", id);
-
+  // LOCK/UNLOCK/DOOR/WRONG_PIN chỉ cập nhật trạng thái chức năng.
+  // ONLINE/OFFLINE được xác định duy nhất bởi heartbeat.
   // ----------------------------------------------------------
   // ESP đã mở khóa
   // ----------------------------------------------------------
@@ -219,8 +213,6 @@ async function applyState(payload) {
         .from("door_states")
         .update({
           lock_status: "UNLOCKED",
-          door_status: "OPEN",
-          device_online: true,
           updated_at: new Date().toISOString(),
         })
         .eq("device_id", id);
@@ -243,8 +235,6 @@ async function applyState(payload) {
         .from("door_states")
         .update({
           lock_status: "LOCKED",
-          door_status: "CLOSED",
-          device_online: true,
           updated_at: new Date().toISOString(),
         })
         .eq("device_id", id);
@@ -258,6 +248,34 @@ async function applyState(payload) {
   }
 
   // ----------------------------------------------------------
+  // Reed Switch: đây là nguồn duy nhất quyết định DOOR_OPEN/CLOSED.
+  // Relay chỉ quyết định lock_status ở các nhánh UNLOCKED/LOCKED.
+  // ----------------------------------------------------------
+  else if (value === "DOOR_OPEN" || value === "DOOR_CLOSED") {
+    const doorStatus = value === "DOOR_OPEN" ? "OPEN" : "CLOSED";
+
+    const { error } = await supabase
+      .from("door_states")
+      .update({
+        door_status: doorStatus,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("device_id", id);
+
+    if (error) {
+      console.error(
+        "❌ Lỗi cập nhật trạng thái Reed Switch:",
+        error
+      );
+    } else {
+      console.log(
+        "[bridge] Reed Switch ->",
+        doorStatus
+      );
+    }
+  }
+
+  // ----------------------------------------------------------
   // Nhập sai PIN
   // ----------------------------------------------------------
 
@@ -266,7 +284,6 @@ async function applyState(payload) {
       await supabase
         .from("door_states")
         .update({
-          device_online: true,
           updated_at: new Date().toISOString(),
         })
         .eq("device_id", id);
@@ -279,11 +296,15 @@ async function applyState(payload) {
     }
   }
 
-  // Nếu trước đó đang Offline
-  // nhưng ESP vừa gửi trạng thái
-  if (markedOffline) {
-    await markOnline(true);
-  }
+}
+
+async function applyHeartbeat(payload) {
+  const value = payload.toString().trim();
+  if (value !== DEVICE_CODE) return;
+
+  lastSeen = Date.now();
+  await markOnline(true);
+  console.log("[bridge] Heartbeat:", DEVICE_CODE);
 }
 
 // ============================================================
@@ -329,9 +350,11 @@ async function processPendingCommand() {
     return;
   }
 
+  // Web command OPEN -> firmware command UNLOCK.
+  // Firmware does not handle OPEN directly.
   client.publish(
     TOPIC_COMMAND,
-    "OPEN",
+    "UNLOCK",
     { qos: 1 },
     async (publishError) => {
       if (publishError) {
@@ -784,6 +807,7 @@ client.on("connect", async () => {
   client.subscribe(
     [
       TOPIC_STATE,
+      TOPIC_HEARTBEAT,
       TOPIC_EVENT,
       TOPIC_CONFIG,
     ],
@@ -804,6 +828,11 @@ client.on("connect", async () => {
       console.log(
         "   ",
         TOPIC_STATE
+      );
+
+      console.log(
+        "   ",
+        TOPIC_HEARTBEAT
       );
 
       console.log(
@@ -837,6 +866,12 @@ client.on(
       applyState(
         payload
       ).catch(console.error);
+    }
+
+    if (
+      topic === TOPIC_HEARTBEAT
+    ) {
+      applyHeartbeat(payload).catch(console.error);
     }
 
     if (
@@ -946,5 +981,3 @@ ensureDevice()
     }
   })
   .catch(console.error);
-
-[executed on device: MacBook-Pro-cua-Tran.local (c9c94aa2-2efb-48f8-ac43-bdde97d30e68)]
