@@ -57,6 +57,9 @@ const TOPIC_COMMAND =
 const TOPIC_STATE =
   "smartbuilding/door/state";
 
+const TOPIC_HEARTBEAT =
+  "smartbuilding/door/heartbeat";
+
 const TOPIC_EVENT =
   "smartbuilding/door/event";
 
@@ -200,15 +203,8 @@ async function applyState(payload) {
     return;
   }
 
-  // ESP đã gửi heartbeat/state -> cập nhật last_seen.
-  await supabase
-    .from("devices")
-    .update({
-      online: true,
-      last_seen: new Date().toISOString(),
-    })
-    .eq("id", id);
-
+  // LOCK/UNLOCK/DOOR/WRONG_PIN chỉ cập nhật trạng thái chức năng.
+  // ONLINE/OFFLINE được xác định duy nhất bởi heartbeat.
   // ----------------------------------------------------------
   // ESP đã mở khóa
   // ----------------------------------------------------------
@@ -219,7 +215,6 @@ async function applyState(payload) {
         .from("door_states")
         .update({
           lock_status: "UNLOCKED",
-          device_online: true,
           updated_at: new Date().toISOString(),
         })
         .eq("device_id", id);
@@ -242,7 +237,6 @@ async function applyState(payload) {
         .from("door_states")
         .update({
           lock_status: "LOCKED",
-          device_online: true,
           updated_at: new Date().toISOString(),
         })
         .eq("device_id", id);
@@ -266,7 +260,6 @@ async function applyState(payload) {
       .from("door_states")
       .update({
         door_status: doorStatus,
-        device_online: true,
         updated_at: new Date().toISOString(),
       })
       .eq("device_id", id);
@@ -293,7 +286,6 @@ async function applyState(payload) {
       await supabase
         .from("door_states")
         .update({
-          device_online: true,
           updated_at: new Date().toISOString(),
         })
         .eq("device_id", id);
@@ -306,11 +298,15 @@ async function applyState(payload) {
     }
   }
 
-  // Nếu trước đó đang Offline
-  // nhưng ESP vừa gửi trạng thái
-  if (markedOffline) {
-    await markOnline(true);
-  }
+}
+
+async function applyHeartbeat(payload) {
+  const value = payload.toString().trim();
+  if (value !== DEVICE_CODE) return;
+
+  lastSeen = Date.now();
+  await markOnline(true);
+  console.log("[bridge] Heartbeat:", DEVICE_CODE);
 }
 
 // ============================================================
@@ -813,6 +809,7 @@ client.on("connect", async () => {
   client.subscribe(
     [
       TOPIC_STATE,
+      TOPIC_HEARTBEAT,
       TOPIC_EVENT,
       TOPIC_CONFIG,
     ],
@@ -833,6 +830,11 @@ client.on("connect", async () => {
       console.log(
         "   ",
         TOPIC_STATE
+      );
+
+      console.log(
+        "   ",
+        TOPIC_HEARTBEAT
       );
 
       console.log(
@@ -866,6 +868,12 @@ client.on(
       applyState(
         payload
       ).catch(console.error);
+    }
+
+    if (
+      topic === TOPIC_HEARTBEAT
+    ) {
+      applyHeartbeat(payload).catch(console.error);
     }
 
     if (
